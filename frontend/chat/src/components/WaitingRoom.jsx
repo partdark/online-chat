@@ -1,20 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-export const WaitingRoom = ({joinChat}) => {
-    const [userName, setUserName] = useState("");
-    const [roomName, setRoomName] = useState("");
+export const WaitingRoom = ({joinChat, initialUserName = "", initialRoomName = ""}) => {
+    const [userName, setUserName] = useState(initialUserName);
+    const [roomName, setRoomName] = useState(initialRoomName);
     const [error, setError] = useState("");
 
     const onSubmit = (e) => {
         e.preventDefault();
         
-        // Check for empty username
+        
         if (!userName.trim()) {
             setError("Имя пользователя не может быть пустым");
             return;
         }
         
-        // Check for empty room name
+      
         if (!roomName.trim()) {
             setError("Название чата не может быть пустым");
             return;
@@ -23,7 +23,7 @@ export const WaitingRoom = ({joinChat}) => {
         // Clear any previous errors
         setError("");
         
-        // Join the chat
+        
         joinChat(userName.trim(), roomName.trim());
     }
     

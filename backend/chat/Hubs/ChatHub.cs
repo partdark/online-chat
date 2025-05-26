@@ -9,6 +9,7 @@ public interface IChatClient
 {
     public Task ReceiveMessage(string userName, string message);
     public Task ReceiveMessageHistory(List<ChatMessage> messageHistory);
+    public Task UsersInRoom(List<string> users);
 }
 
 public class ChatHub(IChatMessageService messageService, ILogger<ChatHub> logger)
@@ -20,27 +21,30 @@ public class ChatHub(IChatMessageService messageService, ILogger<ChatHub> logger
     {
         try
         {
-            // Store the user connection
+            
             Users[Context.ConnectionId] = connection;
 
-            // Add to the group
+            // добавляем к группе пользователей
             await Groups.AddToGroupAsync(Context.ConnectionId, connection.ChatRoom);
             
-            // Get message history from Redis
+            // получаем сообщения используя Redis
             var messageHistory = await messageService.GetChatHistoryAsync(connection.ChatRoom);
             
-            // Send message history to the new user
+            // Отправляем все предыдущие сообщения пользователю
             await Clients.Caller.ReceiveMessageHistory(messageHistory);
             
-            // Create join message
+            // создаем уведомление о присоеденении нового опльзователя
             var joinMessage = new ChatMessage("Система", $"{connection.UserName} присоединился к чату");
             
-            // Add join message to Redis
+            // отправляем сообщение на Redis
             await messageService.AddMessageAsync(connection.ChatRoom, joinMessage);
             
-            // Send welcome message to all users in the room
+            // отправляем сообщения в чате
             await Clients.Group(connection.ChatRoom)
                 .ReceiveMessage(joinMessage.UserName, joinMessage.Message);
+                
+            // Send updated user list to all clients in the room
+            await SendUsersInRoom(connection.ChatRoom);
         }
         catch (Exception ex)
         {
@@ -54,13 +58,13 @@ public class ChatHub(IChatMessageService messageService, ILogger<ChatHub> logger
         {
             if (Users.TryGetValue(Context.ConnectionId, out var connection))
             {
-                // Create chat message
+                // cоздание сообщения
                 var chatMessage = new ChatMessage(connection.UserName, message);
                 
-                // Add to Redis
+                // кеширование в Redis
                 await messageService.AddMessageAsync(connection.ChatRoom, chatMessage);
                 
-                // Send to all clients in the group
+                // обновление списка сообщений
                 await Clients.Group(connection.ChatRoom)
                     .ReceiveMessage(chatMessage.UserName, chatMessage.Message);
             }
@@ -88,6 +92,9 @@ public class ChatHub(IChatMessageService messageService, ILogger<ChatHub> logger
                     .ReceiveMessage(leaveMessage.UserName, leaveMessage.Message);
                 
                 Users.Remove(Context.ConnectionId);
+                
+                // Send updated user list to all clients in the room
+                await SendUsersInRoom(connection.ChatRoom);
             }
         }
         catch (Exception ex)
@@ -96,5 +103,25 @@ public class ChatHub(IChatMessageService messageService, ILogger<ChatHub> logger
         }
         
         await base.OnDisconnectedAsync(exception);
+    }
+    
+    // Helper method to send the current users in a room
+    private async Task SendUsersInRoom(string roomName)
+    {
+        try
+        {
+            // Get all users in the specified room
+            var usersInRoom = Users
+                .Where(u => u.Value.ChatRoom == roomName)
+                .Select(u => u.Value.UserName)
+                .ToList();
+                
+            // Send the list to all clients in the room
+            await Clients.Group(roomName).UsersInRoom(usersInRoom);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in SendUsersInRoom");
+        }
     }
 }

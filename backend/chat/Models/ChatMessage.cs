@@ -1,23 +1,8 @@
 ﻿namespace chat.Models;
 
-public class ChatMessage
+public class ChatMessage(string userName, string message)
 {
-    public string UserName { get; set; }
-    public string Message { get; set; }
-    public DateTime Timestamp { get; set; }
+    public string UserName { get; set; } = userName;
+    public string Message { get; set; } = message;
 
-    // Default constructor for deserialization
-    public ChatMessage()
-    {
-        UserName = string.Empty;
-        Message = string.Empty;
-        Timestamp = DateTime.UtcNow;
-    }
-
-    public ChatMessage(string userName, string message)
-    {
-        UserName = userName;
-        Message = message;
-        Timestamp = DateTime.UtcNow;
-    }
 }

@@ -1,6 +1,5 @@
 ﻿using chat.Hubs;
 using chat.Services;
-using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 

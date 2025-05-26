@@ -9,6 +9,9 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [connected, setConnected] = useState(false);
   const [currentRoom, setCurrentRoom] = useState("");
+  const [lastUserName, setLastUserName] = useState("");
+  const [lastRoomName, setLastRoomName] = useState("");
+  const [activeUsers, setActiveUsers] = useState([]);
 
   // Define message handlers outside of joinChat
   const handleReceiveMessage = (userName, message) => {
@@ -17,11 +20,27 @@ function App() {
   };
 
   const handleMessageHistory = (messageHistory) => {
-    const formattedMessages = messageHistory.map(msg => ({
-      userName: msg.userName,
-      message: msg.message,
-      timestamp: new Date(msg.timestamp).toLocaleTimeString()
-    }));
+    const formattedMessages = messageHistory.map(msg => {
+      // Check if timestamp is valid before creating a Date object
+      let timestamp;
+      try {
+        // Handle both string timestamps and numeric timestamps
+        timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : "";
+        // Check if the result is valid
+        if (timestamp === "Invalid Date") {
+          timestamp = "";
+        }
+      } catch (error) {
+        console.error("Error parsing timestamp:", error);
+        timestamp = "";
+      }
+      
+      return {
+        userName: msg.userName,
+        message: msg.message,
+        timestamp: timestamp
+      };
+    });
     setMessages(formattedMessages);
   };
 
@@ -45,6 +64,11 @@ function App() {
 
       // Handle message history
       newConnection.on("ReceiveMessageHistory", handleMessageHistory);
+      
+      // Handle user list updates
+      newConnection.on("UsersInRoom", (users) => {
+        setActiveUsers(users);
+      });
 
       await newConnection.start();
       
@@ -52,6 +76,8 @@ function App() {
       
       setConnection(newConnection);
       setCurrentRoom(chatRoom);
+      setLastUserName(userName);
+      setLastRoomName(chatRoom);
       setConnected(true);
     }
     catch (error) {
@@ -88,13 +114,18 @@ function App() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100" style={{ padding: '0 10%' }}>
       <div className="container">
         {!connected ? (
-          <WaitingRoom joinChat={joinChat} />
+          <WaitingRoom 
+            joinChat={joinChat} 
+            initialUserName={lastUserName} 
+            initialRoomName={lastRoomName} 
+          />
         ) : (
           <ChatRoom 
             messages={messages} 
             sendMessage={sendMessage} 
             leaveChat={leaveChat}
             roomName={currentRoom}
+            activeUsers={activeUsers}
           />
         )}
       </div>
